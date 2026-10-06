@@ -1,0 +1,3 @@
+import Link from "next/link";
+const customers=[["Ali Valiyev","+998 90 123 45 67","12 ta buyurtma"],["Madina Sobirova"," +998 91 222 33 44","8 ta buyurtma"],["Sardor Karimov","+998 93 555 66 77","5 ta buyurtma"]];
+export default function Customers(){return <main className="dashboard"><div className="dashhead"><h1>Mijozlar</h1><Link className="btn secondary" href="/dashboard">Dashboard</Link></div><div className="panel">{customers.map(([n,p,o])=><div className="row" key={p}><span><b>{n}</b><br/><small>{p}</small></span><span>{o}</span></div>)}</div></main>}
