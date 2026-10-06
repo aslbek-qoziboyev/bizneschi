@@ -1,0 +1,3 @@
+import Link from "next/link";
+const plans=[["Free","0 so‘m","50 mijoz · 100 buyurtma/oy"],["Pro","99 000 so‘m/oy","2 000 mijoz · 10 000 buyurtma · Telegram bot"],["Business","249 000 so‘m/oy","Cheksiz mijoz · bir nechta xodim · kengaytirilgan hisobot"]];
+export default function Subscription(){return <main className="dashboard"><div className="dashhead"><h1>Tariflar</h1><Link className="btn secondary" href="/dashboard">Dashboard</Link></div><div className="plans">{plans.map(([n,p,d],i)=><div className="card plan" key={n}><h2>{n}</h2><strong>{p}</strong><p>{d}</p><button className={"btn "+(i===1?"primary":"secondary")}>{i===0?"Joriy tarif":"Tanlash"}</button></div>)}</div></main>}
