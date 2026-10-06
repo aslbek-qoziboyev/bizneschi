@@ -1,3 +1,73 @@
 import Link from "next/link";
-const orders=[["#1048","Ali Valiyev","245 000 so‘m","To‘langan"],["#1047","Sardor Karimov","180 000 so‘m","Kutilmoqda"],["#1046","Madina Sobirova","420 000 so‘m","To‘langan"]];
-export default function Dashboard(){return <main className="dashboard"><div className="dashhead"><div><div className="brand">Biznes<span>chi</span></div><h1>Dashboard</h1></div><Link className="btn secondary" href="/">Bosh sahifa</Link></div><div className="grid"><div className="metric"><small>Bugungi savdo</small><strong>2.48 mln</strong></div><div className="metric"><small>Buyurtmalar</small><strong>24</strong></div><div className="metric"><small>Faol mijozlar</small><strong>186</strong></div></div><div className="panel"><h2>So‘nggi buyurtmalar</h2>{orders.map(([id,name,total,status])=><div className="row" key={id}><span><b>{id}</b> · {name}</span><span>{total} · <span className="badge">{status}</span></span></div>)}</div><div className="panel"><h2>Telegram bot</h2><p>Bot holati: <span className="badge">MVP tayyor</span></p><p>Keyingi bosqich: Telegram webhook orqali mijoz xabarlarini qabul qilish va buyurtma yaratish.</p></div></main>}
+import { createClient } from "@/lib/supabase/server";
+
+export default async function Dashboard() {
+  const supabase = createClient();
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData.user;
+
+  if (!user) return null;
+
+  const { data: memberships } = await supabase
+    .from("business_members")
+    .select("business_id, businesses(id,name)")
+    .eq("user_id", user.id)
+    .limit(1);
+
+  const business = memberships?.[0]?.businesses as { id: string; name: string } | undefined;
+  if (!business) {
+    return (
+      <main className="dashboard">
+        <div className="panel">
+          <h1>Biznes akkauntingiz tayyorlanmoqda</h1>
+          <p>Login sahifasidan biznes nomi bilan qayta ro‘yxatdan o‘ting yoki support bilan bog‘laning.</p>
+        </div>
+      </main>
+    );
+  }
+
+  const [customers, orders, recentOrders, subscription] = await Promise.all([
+    supabase.from("biz_customers").select("id", { count: "exact", head: true }).eq("business_id", business.id),
+    supabase.from("biz_orders").select("id,total", { count: "exact" }).eq("business_id", business.id),
+    supabase.from("biz_orders").select("id,order_number,total,status,created_at,biz_customers(name)").eq("business_id", business.id).order("created_at", { ascending: false }).limit(5),
+    supabase.from("subscriptions").select("plan,status").eq("business_id", business.id).maybeSingle()
+  ]);
+
+  const revenue = (orders.data ?? []).reduce((sum, order) => sum + Number(order.total || 0), 0);
+
+  return (
+    <main className="dashboard">
+      <div className="dashhead">
+        <div><div className="brand">Biznes<span>chi</span></div><h1>{business.name}</h1></div>
+        <Link className="btn secondary" href="/settings">Sozlamalar</Link>
+      </div>
+
+      <nav className="panel">
+        <Link href="/customers">Mijozlar</Link> · <Link href="/orders">Buyurtmalar</Link> · <Link href="/settings">Telegram</Link> · <Link href="/subscription">Subscription</Link>
+      </nav>
+
+      <div className="grid">
+        <div className="metric"><small>Mijozlar</small><strong>{customers.count ?? 0}</strong></div>
+        <div className="metric"><small>Buyurtmalar</small><strong>{orders.count ?? 0}</strong></div>
+        <div className="metric"><small>Jami savdo</small><strong>{revenue.toLocaleString("uz-UZ")} so‘m</strong></div>
+      </div>
+
+      <div className="panel">
+        <h2>So‘nggi buyurtmalar</h2>
+        {(recentOrders.data ?? []).length === 0 && <p className="muted">Hali buyurtmalar yo‘q.</p>}
+        {(recentOrders.data ?? []).map((order) => (
+          <div className="row" key={order.id}>
+            <span><b>#{order.order_number}</b> · {order.biz_customers?.name ?? "Noma’lum mijoz"}</span>
+            <span>{Number(order.total).toLocaleString("uz-UZ")} so‘m · <span className="badge">{order.status}</span></span>
+          </div>
+        ))}
+      </div>
+
+      <div className="panel">
+        <h2>Telegram bot</h2>
+        <p>Holat: <span className="badge">Sozlamalarda ulash mumkin</span></p>
+        <p>Tarif: <b>{subscription.data?.plan ?? "free"}</b></p>
+      </div>
+    </main>
+  );
+}
