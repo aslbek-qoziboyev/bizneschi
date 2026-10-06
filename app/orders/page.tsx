@@ -1,17 +1,18 @@
+"use client";
+
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-
-export default async function Orders() {
-  const supabase = createClient();
-  const { data: membership } = await supabase.from("business_members").select("business_id").limit(1).maybeSingle();
-  const id = membership?.business_id;
-  const { data: orders } = id ? await supabase.from("biz_orders").select("id,order_number,total,status,payment_status,created_at").eq("business_id", id).order("created_at", { ascending: false }) : { data: [] };
-
-  return <main className="dashboard">
-    <div className="dashhead"><div><div className="brand">Biznes<span>chi</span></div><h1>Buyurtmalar</h1></div><Link className="btn secondary" href="/dashboard">Dashboard</Link></div>
-    <div className="panel">
-      {(orders ?? []).map(o => <div className="row" key={o.id}><span><b>#{o.order_number}</b> · {new Date(o.created_at).toLocaleDateString("uz-UZ")}</span><span>{Number(o.total).toLocaleString("uz-UZ")} so‘m · <span className="badge">{o.payment_status === "paid" ? "To‘langan" : o.payment_status === "pending" ? "Kutilmoqda" : o.status}</span></span></div>)}
-      {(orders ?? []).length === 0 && <p className="muted">Hali buyurtmalar yo‘q.</p>}
-    </div>
-  </main>;
+import { useEffect,useState } from "react";
+type Order={id:string;order_number:number;total:number;status:string;payment_status:string;created_at:string;customer_id:string|null};
+const statuses=["new","confirmed","processing","completed","cancelled"];
+const labels:Record<string,string>={new:"Yangi",confirmed:"Tasdiqlangan",processing:"Jarayonda",completed:"Tugallangan",cancelled:"Bekor qilingan"};
+export default function Orders(){
+ const [orders,setOrders]=useState<Order[]>([]); const [customers,setCustomers]=useState<{id:string;name:string}[]>([]); const [form,setForm]=useState({customer_id:"",total:"",note:""}); const [message,setMessage]=useState(""); const [saving,setSaving]=useState(false);
+ async function load(){const [a,b]=await Promise.all([fetch("/api/orders"),fetch("/api/customers")]);const ad=await a.json(),bd=await b.json();if(a.ok)setOrders(ad.data||[]);else setMessage(ad.error||"Buyurtmalarni yuklashda xato.");if(b.ok)setCustomers((bd.data||[]).map((x:any)=>({id:x.id,name:x.name})));}
+ useEffect(()=>{load()},[]);
+ async function add(e:React.FormEvent){e.preventDefault();setSaving(true);const r=await fetch("/api/orders",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...form,total:Number(form.total)})});const d=await r.json();if(!r.ok)setMessage(d.error||"Buyurtma yaratilmadi.");else{setForm({customer_id:"",total:"",note:""});await load();}setSaving(false);}
+ async function update(id:string,status:string){const r=await fetch("/api/orders",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,status})});const d=await r.json();if(!r.ok)setMessage(d.error||"Status yangilanmadi.");else setOrders(x=>x.map(o=>o.id===id?{...o,status}:o));}
+ return <main className="dashboard"><div className="dashhead"><div><div className="brand">Biznes<span>chi</span></div><h1>Buyurtmalar</h1></div><Link className="btn secondary" href="/dashboard">Dashboard</Link></div>
+ <div className="panel"><h2>Yangi buyurtma</h2><form onSubmit={add} className="formgrid"><select className="wideinput" value={form.customer_id} onChange={e=>setForm({...form,customer_id:e.target.value})}><option value="">Mijozni tanlang</option>{customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select><input className="wideinput" type="number" min="0" step="1" placeholder="Summa (so‘m) *" value={form.total} onChange={e=>setForm({...form,total:e.target.value})} required/><input className="wideinput" placeholder="Izoh" value={form.note} onChange={e=>setForm({...form,note:e.target.value})}/><button className="btn primary" disabled={saving}>{saving?"Saqlanmoqda...":"Buyurtma yaratish"}</button></form>{message&&<p className="muted">{message}</p>}</div>
+ <div className="panel"><h2>Buyurtmalar ro‘yxati</h2>{orders.length===0?<p className="muted">Hali buyurtmalar yo‘q.</p>:orders.map(o=><div className="row" key={o.id}><span><b>#{o.order_number}</b> · {o.customer_id?customers.find(c=>c.id===o.customer_id)?.name||"Mijoz":"Nomsiz mijoz"}<br/><small>{new Date(o.created_at).toLocaleDateString("uz-UZ")} · {Number(o.total).toLocaleString("uz-UZ")} so‘m</small></span><span><select value={o.status} onChange={e=>update(o.id,e.target.value)}>{statuses.map(s=><option key={s} value={s}>{labels[s]}</option>)}</select> <span className="badge">{o.payment_status==="paid"?"To‘langan":o.payment_status==="pending"?"Kutilmoqda":"To‘lanmagan"}</span></span></div>)}</div>
+ </main>;
 }
