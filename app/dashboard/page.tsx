@@ -57,7 +57,7 @@ export default async function Dashboard() {
         {(recentOrders.data ?? []).length === 0 && <p className="muted">Hali buyurtmalar yo‘q.</p>}
         {(recentOrders.data ?? []).map((order) => (
           <div className="row" key={order.id}>
-            <span><b>#{order.order_number}</b> · {order.biz_customers?.name ?? "Noma’lum mijoz"}</span>
+            <span><b>#{order.order_number}</b> · {order.biz_customers?.[0]?.name ?? "Noma’lum mijoz"}</span>
             <span>{Number(order.total).toLocaleString("uz-UZ")} so‘m · <span className="badge">{order.status}</span></span>
           </div>
         ))}
