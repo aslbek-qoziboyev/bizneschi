@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -7,18 +7,13 @@ export async function POST(request: Request) {
   const status = String(body.status || "");
   const amount = Number(body.amount || 0);
   const transactionId = body.transaction_id ? Number(body.transaction_id) : null;
-
   if (!orderId || !["success", "failed"].includes(status)) return NextResponse.json({ error: "Invalid webhook" }, { status: 400 });
 
-  const supabase = createClient();
+  const supabase = createAdminClient();
   const { data: payment } = await supabase.from("payments").select("id,business_id,subscription_plan,amount,status").eq("provider_order_id", orderId).maybeSingle();
   if (!payment) return NextResponse.json({ error: "Payment not found" }, { status: 404 });
-
   if (payment.status === "success") return NextResponse.json({ ok: true });
-
-  if (status === "success" && Math.round(Number(payment.amount)) !== Math.round(amount)) {
-    return NextResponse.json({ error: "Amount mismatch" }, { status: 400 });
-  }
+  if (status === "success" && Math.round(Number(payment.amount)) !== Math.round(amount)) return NextResponse.json({ error: "Amount mismatch" }, { status: 400 });
 
   const now = new Date();
   const periodEnd = new Date(now);
@@ -39,6 +34,5 @@ export async function POST(request: Request) {
       updated_at: now.toISOString()
     });
   }
-
   return NextResponse.json({ ok: true });
 }
