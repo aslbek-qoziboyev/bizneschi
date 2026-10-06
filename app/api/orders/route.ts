@@ -1,16 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-
-export async function POST(request: Request) {
-  const supabase=createClient();
-  const {data:u}=await supabase.auth.getUser();
-  if(!u.user) return NextResponse.json({error:"Unauthorized"},{status:401});
-  const {data:m}=await supabase.from("business_members").select("business_id").eq("user_id",u.user.id).limit(1).maybeSingle();
-  if(!m) return NextResponse.json({error:"Biznes topilmadi"},{status:404});
-  const b=await request.json();
-  const total=Number(b.total);
-  if(!Number.isFinite(total)||total<0) return NextResponse.json({error:"Summa noto‘g‘ri"},{status:400});
-  const {data,error}=await supabase.from("biz_orders").insert({business_id:m.business_id,customer_id:b.customer_id||null,total,status:b.status||"new",note:b.note||null}).select().single();
-  if(error) return NextResponse.json({error:error.message},{status:400});
-  return NextResponse.json({data});
-}
+async function getBusiness(s:any,userId:string){const {data}=await s.from("business_members").select("business_id").eq("user_id",userId).limit(1).maybeSingle();return data?.business_id||null;}
+export async function GET(){const s=createClient();const {data:u}=await s.auth.getUser();if(!u.user)return NextResponse.json({error:"Unauthorized"},{status:401});const id=await getBusiness(s,u.user.id);if(!id)return NextResponse.json({error:"Biznes topilmadi"},{status:404});const {data,error}=await s.from("biz_orders").select("id,order_number,total,status,payment_status,customer_id,created_at").eq("business_id",id).order("created_at",{ascending:false});if(error)return NextResponse.json({error:error.message},{status:400});return NextResponse.json({data});}
+export async function POST(request:Request){const s=createClient();const {data:u}=await s.auth.getUser();if(!u.user)return NextResponse.json({error:"Unauthorized"},{status:401});const id=await getBusiness(s,u.user.id);if(!id)return NextResponse.json({error:"Biznes topilmadi"},{status:404});const b=await request.json();const total=Number(b.total);if(!Number.isFinite(total)||total<0)return NextResponse.json({error:"Summa noto‘g‘ri"},{status:400});const {data,error}=await s.from("biz_orders").insert({business_id:id,customer_id:b.customer_id||null,total,note:String(b.note||"").trim()||null}).select().single();if(error)return NextResponse.json({error:error.message},{status:400});return NextResponse.json({data});}
+export async function PATCH(request:Request){const s=createClient();const {data:u}=await s.auth.getUser();if(!u.user)return NextResponse.json({error:"Unauthorized"},{status:401});const id=await getBusiness(s,u.user.id);if(!id)return NextResponse.json({error:"Biznes topilmadi"},{status:404});const b=await request.json();const allowed=["new","confirmed","processing","completed","cancelled"];if(!b.id||!allowed.includes(b.status))return NextResponse.json({error:"Status noto‘g‘ri"},{status:400});const {data,error}=await s.from("biz_orders").update({status:b.status,updated_at:new Date().toISOString()}).eq("id",b.id).eq("business_id",id).select().single();if(error)return NextResponse.json({error:error.message},{status:400});return NextResponse.json({data});}
