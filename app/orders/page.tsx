@@ -1,0 +1,3 @@
+import Link from "next/link";
+const orders=[["#1048","Ali Valiyev","245 000 so‘m","To‘langan"],["#1047","Sardor Karimov","180 000 so‘m","Kutilmoqda"],["#1046","Madina Sobirova","420 000 so‘m","To‘langan"]];
+export default function Orders(){return <main className="dashboard"><div className="dashhead"><h1>Buyurtmalar</h1><Link className="btn secondary" href="/dashboard">Dashboard</Link></div><div className="panel">{orders.map(([id,n,t,s])=><div className="row" key={id}><span><b>{id}</b> · {n}</span><span>{t} · <span className="badge">{s}</span></span></div>)}</div></main>}
