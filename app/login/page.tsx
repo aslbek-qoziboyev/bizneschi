@@ -36,7 +36,7 @@ export default function Login() {
     if (mode === "register") {
       const { data: sessionData } = await supabase.auth.getSession();
       if (sessionData.session) {
-        await fetch("/api/business/setup", { method: "POST" });
+        await fetch("/api/business/setup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessName }) });
         window.location.href = "/dashboard";
       } else {
         setMessage("Emailingizni tasdiqlang. Keyin login qiling.");
